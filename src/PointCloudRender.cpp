@@ -8,11 +8,14 @@
 
 #include <boost/shared_ptr.hpp>
 #include <boost/integer.hpp>
+#include <sstream>
 
 #include <GL/gl.h>
 #include <GL/glu.h>
 
 #include <GL/freeglut.h>
+
+#define CHECK_GLUT_ERROR { std::stringstream ss; ss << "error on: " << __LINE__ -1; checkGlError(ss.str().c_str());}
 
 namespace ecto_gl
 {
@@ -30,180 +33,58 @@ namespace ecto_gl
 
   using ecto::tendrils;
   using ecto::spore;
-
-  struct CloudRaw
+  struct CloudProgram
   {
-    static const std::vector<float> uv;
-
-    static const size_t STEP_UV = 2 * sizeof(float); // the step from one point start to the next
-    static const size_t PER_UV = 2; //X,Y,Z
-
-    static const size_t STEP_D = sizeof(uint16_t); // the step from one point start to the next
-    static const size_t PER_D = 1; //X,Y,Z
-    static const size_t STEP_C = 3 * sizeof(char); // the step from one color start to the next
-    static const size_t PER_C = 3; //R,G,B
-
-    const uint16_t * depths;
-    const float* uvs;
-    const uint8_t* colors;
-    size_t n; //!< number of points
-
-    CloudRaw()
+    CloudProgram()
         :
-          depths(0),
-          uvs(0),
-          colors(0),
-          n(0),
-          depth_buffer(0),
-          color_buffer(0),
-          loaded(false)
+          program(0),
+          uvHandle(0)
     {
-    }
-    CloudRaw(const RgbData& color_buff, const DepthData& depth_buff)
-        :
-          depths(depth_buff.data()),
-          uvs(uv.data()),
-          colors(color_buff.data()),
-          n(depth_buff.size()),
-          depth_buffer(0),
-          color_buffer(0),
-          loaded(false)
-    {
-
-    }
-
-    void
-    loadIntoGLBuffer()
-    {
-      if (loaded)
-        return;
-      if (n == 0)
-        return;
-      if (uv_buffer == 0)
-      {
-        glGenBuffers(1, &uv_buffer);
-        glBindBuffer(GL_ARRAY_BUFFER, uv_buffer);
-        glBufferData(GL_ARRAY_BUFFER, STEP_UV * n, uvs, GL_STATIC_DRAW);
-      }
-
-      if (depth_buffer == 0)
-      {
-        glGenBuffers(1, &depth_buffer);
-      }
-      else
-      {
-        glDeleteBuffers(1, &depth_buffer);
-      }
-      glBindBuffer(GL_ARRAY_BUFFER, depth_buffer);
-      glBufferData(GL_ARRAY_BUFFER, STEP_D * n, depths, GL_STATIC_DRAW);
-
-      if (color_buffer == 0)
-      {
-        glGenBuffers(1, &color_buffer);
-      }
-      else
-      {
-        glDeleteBuffers(1, &color_buffer);
-      }
-      glBindBuffer(GL_ARRAY_BUFFER, color_buffer);
-      glBufferData(GL_ARRAY_BUFFER, STEP_C * n, colors, GL_STATIC_DRAW);
-      loaded = true;
-    }
-
-    void
-    draw(Camera camera)
-    {
-      loadIntoGLBuffer();
-
-      glBindBuffer(GL_ARRAY_BUFFER, uv_buffer);
-      checkGlError("glBindBuffer");
-      glEnableVertexAttribArray(uvHandle);
-      checkGlError("glEnableVertexAttribArray");
-      glVertexAttribPointer(uvHandle, PER_UV, GL_FLOAT, GL_FALSE, STEP_UV, (void*) 0);
-      checkGlError("glVertexAttribPointer");
-
-//      glBindBuffer(GL_ARRAY_BUFFER, depth_buffer);
-//      checkGlError("glBindBuffer");
-//      glEnableVertexAttribArray(depthHandle);
-//      checkGlError("glEnableVertexAttribArray");
-//      glVertexAttribPointer(depthHandle, PER_D, GL_UNSIGNED_SHORT, GL_FALSE, STEP_D, (void*) 0);
-//      checkGlError("glVertexAttribPointer");
-//
-//      glBindBuffer(GL_ARRAY_BUFFER, color_buffer);
-//      checkGlError("glBindBuffer");
-//      glEnableVertexAttribArray(colorHandle);
-//      checkGlError("glEnableVertexAttribArray");
-//      glVertexAttribPointer(colorHandle, PER_C, GL_UNSIGNED_BYTE, GL_FALSE, STEP_C, (void*) 0);
-//      checkGlError("glVertexAttribPointer");
-
-//      Matrix4f pt = camera.projectionMatrix() * camera.viewMatrix().matrix();
-      //glUniformMatrix4fv(transformHandle, 1, false, pt.data());
-      //checkGlError("glUniformMatrix4fv");
-      glDrawArrays(GL_POINTS, 0, n);
-      checkGlError("glDrawArrays");
-
-    }
-
-    static GLuint uv_buffer;
-    GLuint depth_buffer, color_buffer;
-    bool loaded;
-
-    static GLuint program, depthHandle, colorHandle, uvHandle;
-    static GLint transformHandle;
-    static void
-    loadProgram()
-    {
-      static bool visited = false;
-      if (visited)
-        return;
-      visited = true;
       static const char vertexShader[] = SHADER_STR(
-          uniform mat4 u_mvpMatrix;
-          attribute vec2 a_uv;
-          attribute int a_depth;
-          attribute vec3 a_color;
-          varying vec4 v_color;
+          attribute vec2 uv;
+          attribute float depth;
+          attribute vec3 rgb;
+          varying vec4 color;
           void main()
           {
             float fx = 525.;
             float fy = 525.;
-            float cx = 640/2.0 - .5;
-            float cy = 480/2.0 - .5;
+            float cx = 640./2.0 - .5;
+            float cy = 480./2.0 - .5;
+
             vec4 position;
-            float z = a_depth / 1000.0;
-            position[0] = a_uv[0];
-            position[1] = a_uv[1];
-            position[2] = z;
-            gl_Position = position;
+            float d = depth / 1000.;
+            position[0] = (uv[0] - cx)*d/fx;
+            position[1] = (uv[1] - cy)*d/fy;
+            position[2] = d;
+            position[3] = 1;
+
+            color = vec4(rgb[0]/255.,rgb[1]/255.,rgb[2]/255.,1.);
+            gl_Position = gl_ModelViewProjectionMatrix*position;
             gl_PointSize = 2.0;
-            v_color = vec4(a_color[2]/255.0,a_color[1]/255.0,a_color[0]/255.0,1.0);
           }
       );
 
       static const char fragmentShader[] = SHADER_STR(
           precision mediump float;
-          varying vec4 v_color;
+          varying vec4 color;
           void main()
           {
-            gl_FragColor = v_color;
+            gl_FragColor = color;
           };
       );
-      program = createProgram(vertexShader, fragmentShader);
-      if (!program)
-      {
-        throw std::logic_error("Could not create program.");
-      }
-
-      uvHandle = glGetAttribLocation(program, "a_uv");
-      checkGlError("glGetAttribLocation");
-      depthHandle = glGetAttribLocation(program, "a_depth");
-      checkGlError("glGetAttribLocation");
-      colorHandle = glGetAttribLocation(program, "a_color");
-      checkGlError("glGetAttribLocation");
-      transformHandle = glGetUniformLocation(program, "u_mvpMatrix");
-      checkGlError("glGetUniformLocation");
+      program.reset(new GlProgram(vertexShader, fragmentShader));
+      uvHandle = glGetAttribLocation(program->program, "uv");
+      CHECK_GLUT_ERROR
+      depthHandle = glGetAttribLocation(program->program, "depth");
+      CHECK_GLUT_ERROR
+      rgbHandle = glGetAttribLocation(program->program, "rgb");
+      CHECK_GLUT_ERROR
     }
+    std::auto_ptr<GlProgram> program;
+    GLuint uvHandle, depthHandle, rgbHandle;
   };
+
   std::vector<float>
   fill_uv(int w = 640, int h = 480)
   {
@@ -217,13 +98,106 @@ namespace ecto_gl
       }
     return uv;
   }
-  GLuint CloudRaw::uv_buffer = 0;
-  const std::vector<float> CloudRaw::uv = fill_uv();
-  GLuint CloudRaw::program = 0;
-  GLuint CloudRaw::depthHandle = 0;
-  GLuint CloudRaw::colorHandle = 0;
-  GLuint CloudRaw::uvHandle = 0;
-  GLint CloudRaw::transformHandle = 0;
+
+  struct CloudData: boost::noncopyable
+  {
+    static const size_t PER_UV = 2; //U,V
+    static const size_t STEP_UV = PER_UV * sizeof(float); // the step from one point start to the next
+
+    static const size_t PER_DEPTH = 1; //depth
+    static const size_t STEP_DEPTH = PER_DEPTH * sizeof(uint16_t); // the step from one point start to the next
+
+    static const size_t PER_RGB = 3; //depth
+    static const size_t STEP_RGB = PER_RGB * sizeof(uint8_t); // the step from one point start to the next
+
+    CloudData()
+        :
+          uvs(fill_uv(640, 480)),
+          n(640 * 480),
+          uv_buffer(0),
+          depth_buffer(0)
+    {
+      glGenBuffers(1, &uv_buffer);
+      CHECK_GLUT_ERROR
+      glBindBuffer(GL_ARRAY_BUFFER, uv_buffer);
+      CHECK_GLUT_ERROR
+      glBufferData(GL_ARRAY_BUFFER, sizeof(float) * uvs.size(), uvs.data(), GL_STATIC_DRAW);
+      CHECK_GLUT_ERROR
+    }
+    ~CloudData()
+    {
+      glDeleteBuffers(1, &uv_buffer);
+      CHECK_GLUT_ERROR
+      glDeleteBuffers(1, &depth_buffer);
+      CHECK_GLUT_ERROR
+    }
+    void
+    setDepth(const DepthData& depth)
+    {
+      if (!depth_buffer)
+      {
+        glGenBuffers(1, &depth_buffer);
+        CHECK_GLUT_ERROR
+      }
+      glBindBuffer(GL_ARRAY_BUFFER, depth_buffer);
+      CHECK_GLUT_ERROR
+      glBufferData(GL_ARRAY_BUFFER, sizeof(uint16_t) * depth.size(), depth.data(), GL_DYNAMIC_DRAW);
+      CHECK_GLUT_ERROR
+    }
+
+    void
+    setColor(const RgbData& rgb)
+    {
+      if (!rgb_buffer)
+      {
+        glGenBuffers(1, &rgb_buffer);
+        CHECK_GLUT_ERROR
+      }
+      glBindBuffer(GL_ARRAY_BUFFER, rgb_buffer);
+      CHECK_GLUT_ERROR
+      glBufferData(GL_ARRAY_BUFFER, sizeof(uint8_t) * rgb.size(), rgb.data(), GL_DYNAMIC_DRAW);
+      CHECK_GLUT_ERROR
+    }
+    void
+    draw()
+    {
+      glUseProgram(program.program->program);
+      CHECK_GLUT_ERROR
+      glBindBuffer(GL_ARRAY_BUFFER, uv_buffer);
+      CHECK_GLUT_ERROR
+      glEnableVertexAttribArray(program.uvHandle);
+      CHECK_GLUT_ERROR
+      glVertexAttribPointer(program.uvHandle, PER_UV, GL_FLOAT, GL_FALSE, STEP_UV, (void*) 0);
+      CHECK_GLUT_ERROR
+
+      if (depth_buffer)
+      {
+        glBindBuffer(GL_ARRAY_BUFFER, depth_buffer);
+        glEnableVertexAttribArray(program.depthHandle);
+        CHECK_GLUT_ERROR
+        glVertexAttribPointer(program.depthHandle, PER_DEPTH, GL_UNSIGNED_SHORT, GL_FALSE, STEP_DEPTH, (void*) 0);
+        CHECK_GLUT_ERROR
+      }
+
+      if (rgb_buffer)
+      {
+        glBindBuffer(GL_ARRAY_BUFFER, rgb_buffer);
+        glEnableVertexAttribArray(program.rgbHandle);
+        CHECK_GLUT_ERROR
+        glVertexAttribPointer(program.rgbHandle, PER_RGB, GL_UNSIGNED_BYTE, GL_FALSE, STEP_RGB, (void*) 0);
+        CHECK_GLUT_ERROR
+      }
+      glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
+      glDrawArrays(GL_POINTS, 0, 2*n);
+      CHECK_GLUT_ERROR
+      glUseProgram(0);
+      CHECK_GLUT_ERROR
+    }
+    std::vector<float> uvs;
+    int n;
+    GLuint uv_buffer, depth_buffer, rgb_buffer;
+    CloudProgram program;
+  };
 
   class CloudWindow: public GLWindow
   {
@@ -233,36 +207,48 @@ namespace ecto_gl
           GLWindow(window_name)
     {
     }
-
-    RgbDataConstPtr rgb_data;
-    DepthDataConstPtr depth_data;
-    CloudRaw cloud_raw;
+    std::auto_ptr<CloudData> cloud_raw;
+    DepthDataConstPtr depth;
+    RgbDataConstPtr rgb;
     boost::mutex mtx;
-
     void
-    setData(RgbDataConstPtr c, DepthDataConstPtr d)
+    setData(const RgbDataConstPtr& c, const DepthDataConstPtr& d)
     {
-      SHOW();
       boost::mutex::scoped_lock lock(mtx);
-      rgb_data = c;
-      depth_data = d;
-      cloud_raw = CloudRaw(*rgb_data, *depth_data);
+      depth = d;
+      rgb = c;
     }
 
     virtual void
     display()
     {
+
+      CHECK_GLUT_ERROR
+      glEnable(GL_DEPTH_TEST);
+      CHECK_GLUT_ERROR
+      glDepthRangef(0.1, 100);
+      CHECK_GLUT_ERROR
+
+      glClearColor(0.0f, 0.0f, 0.0f, 1.f);
+      CHECK_GLUT_ERROR
+
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      CHECK_GLUT_ERROR
+
       setView();
-      CloudRaw cr;
+
+      if (!cloud_raw.get())
+        cloud_raw.reset(new CloudData);
+
+      if (depth)
       {
-        SHOW();
         boost::mutex::scoped_lock lock(mtx);
-        cr = cloud_raw;
-        cr.loadIntoGLBuffer();
+        cloud_raw->setDepth(*depth);
+        depth.reset();
+        cloud_raw->setColor(*rgb);
+        rgb.reset();
       }
-      cr.draw(camera_);
-      glutSwapBuffers();
+      cloud_raw->draw();
     }
     virtual void
     init()
@@ -270,17 +256,31 @@ namespace ecto_gl
       /* Use depth buffering for hidden surface elimination. */
       glEnable(GL_DEPTH_TEST);
       camera_.setFovY(3.14f / 4);
-      Eigen::AngleAxisf aa(3.14f / 4, Eigen::Vector3f(1, 0, 0));
-      Eigen::Quaternionf q(aa);
-      camera_.setOrientation(q);
-      camera_.setPosition(Vector3f(0, 0, -5));
+      camera_.setPosition(Vector3f(0, 0, -1));
       camera_.setTarget(Vector3f(0, 0, 0));
+      Eigen::AngleAxisf aa(M_PI, Eigen::Vector3f(0, 0, 1));
+      Eigen::Quaternionf q(aa);
+      aa = Eigen::AngleAxisf(M_PI, Eigen::Vector3f(0, 1, 0));
+      q *= Eigen::Quaternionf(aa);
+      camera_.setOrientation(q);
+
       setView();
       glewInit();
-      if (GLEW_ARB_vertex_shader && GLEW_ARB_fragment_shader)
+      if (GLEW_ARB_vertex_shader && GLEW_ARB_fragment_shader
+      )
         std::cout << ("Ready for GLSL") << std::endl;
+    }
 
-      CloudRaw::loadProgram();
+    void
+    timerfunc(int)
+    {
+      glutPostRedisplay();
+    }
+
+    void
+    destroy()
+    {
+      cloud_raw.reset();
     }
   };
   struct PointCloudDisplay
@@ -319,15 +319,17 @@ namespace ecto_gl
     int
     process(const tendrils&, const tendrils&)
     {
-      if (*image_buffer && *depth_buffer)
+      DepthDataConstPtr db = *depth_buffer;
+      RgbDataConstPtr cb = *image_buffer;
+
+      if (!window)
       {
-        if (!window)
-        {
-          window.reset(new CloudWindow(*window_name));
-          ecto_gl::show_window(window);
-          std::cout << "Added window" << std::endl;
-        }
-        window->setData(*image_buffer, *depth_buffer);
+        window.reset(new CloudWindow(*window_name));
+      }
+      ecto_gl::show_window(window);
+      if (cb && db)
+      {
+        window->setData(cb, db);
       }
       return ecto::OK;
     }

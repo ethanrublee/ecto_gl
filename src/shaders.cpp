@@ -8,6 +8,7 @@
 #include <iostream>
 
 #include "ecto_gl.hpp"
+#include <stdexcept>
 namespace ecto_gl
 {
 
@@ -15,74 +16,77 @@ namespace ecto_gl
   loadShader(GLenum shaderType, const char* pSource)
   {
     GLuint shader = glCreateShader(shaderType);
-    if (shader)
+
+    if (!shader)
+      throw std::logic_error("Could not glCreateShader");
+
+    glShaderSource(shader, 1, &pSource, NULL);
+    glCompileShader(shader);
+    GLint compiled = 0;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
+    if (!compiled)
     {
-      glShaderSource(shader, 1, &pSource, NULL);
-      glCompileShader(shader);
-      GLint compiled = 0;
-      glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
-      if (!compiled)
+      GLint infoLen = 0;
+      glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLen);
+      if (infoLen)
       {
-        GLint infoLen = 0;
-        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLen);
-        if (infoLen)
+        char* buf = (char*) malloc(infoLen);
+        if (buf)
         {
-          char* buf = (char*) malloc(infoLen);
-          if (buf)
-          {
-            glGetShaderInfoLog(shader, infoLen, NULL, buf);
-            std::cerr << "Could not compile shader:\n" << shaderType << " " << buf << std::endl;
-            free(buf);
-          }
-          glDeleteShader(shader);
-          shader = 0;
+          glGetShaderInfoLog(shader, infoLen, NULL, buf);
+          std::cerr << "Could not compile shader:\n" << shaderType << " " << buf << std::endl;
+          free(buf);
         }
+        glDeleteShader(shader);
       }
+      throw std::logic_error("Fail to compile shader.");
     }
     return shader;
   }
 
   GLuint
-  createProgram(const char* pVertexSource, const char* pFragmentSource)
+  createProgram(GLuint vertexShader, GLuint fragmentShader)
   {
-    GLuint vertexShader = loadShader(GL_VERTEX_SHADER, pVertexSource);
-    if (!vertexShader)
-    {
-      return 0;
-    }
-
-    GLuint pixelShader = loadShader(GL_FRAGMENT_SHADER, pFragmentSource);
-    if (!pixelShader)
-    {
-      return 0;
-    }
-
     GLuint program = glCreateProgram();
-    if (program)
+    if (!program)
+      throw std::logic_error("Could not glCreateProgram");
+    glAttachShader(program, vertexShader);
+    glAttachShader(program, fragmentShader);
+    glLinkProgram(program);
+    GLint linkStatus = GL_FALSE;
+    glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
+    if (linkStatus != GL_TRUE)
     {
-      glAttachShader(program, vertexShader);
-      glAttachShader(program, pixelShader);
-      glLinkProgram(program);
-      GLint linkStatus = GL_FALSE;
-      glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
-      if (linkStatus != GL_TRUE)
+      GLint bufLength = 0;
+      glGetProgramiv(program, GL_INFO_LOG_LENGTH, &bufLength);
+      if (bufLength)
       {
-        GLint bufLength = 0;
-        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &bufLength);
-        if (bufLength)
+        char* buf = (char*) malloc(bufLength);
+        if (buf)
         {
-          char* buf = (char*) malloc(bufLength);
-          if (buf)
-          {
-            glGetProgramInfoLog(program, bufLength, NULL, buf);
-            std::cerr << "Could not link program:\n" << buf << std::endl;
-            free(buf);
-          }
+          glGetProgramInfoLog(program, bufLength, NULL, buf);
+          std::cerr << "Could not link program:\n" << buf << std::endl;
+          free(buf);
         }
-        glDeleteProgram(program);
-        program = 0;
       }
+      glDeleteProgram(program);
+      throw std::logic_error("Fail to create program.");
     }
     return program;
   }
+
+  GlProgram::GlProgram(const char* vertexSource, const char* fragmentSource)
+      :
+        vertexShader(loadShader(GL_VERTEX_SHADER, vertexSource)),
+        fragmentShader(loadShader(GL_FRAGMENT_SHADER, fragmentSource)),
+        program(createProgram(vertexShader, fragmentShader))
+  {
+  }
+  GlProgram::~GlProgram()
+  {
+    glDeleteProgram(program);
+    glDeleteShader(fragmentShader);
+    glDeleteShader(vertexShader);
+  }
+
 }

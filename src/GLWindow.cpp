@@ -86,7 +86,6 @@ namespace ecto_gl
       glVertex3fv(&v[faces[i][3]][0]);
       glEnd();
     }
-    glutSwapBuffers();
   }
 
   inline void
@@ -169,9 +168,6 @@ namespace ecto_gl
     /* Use depth buffering for hidden surface elimination. */
     glEnable(GL_DEPTH_TEST);
     camera_.setFovY(3.14f / 4);
-    Eigen::AngleAxisf aa(3.14f / 4, Eigen::Vector3f(1, 0, 0));
-    Eigen::Quaternionf q(aa);
-    camera_.setOrientation(q);
     camera_.setPosition(Vector3f(0, 0, -5));
     camera_.setTarget(Vector3f(0, 0, 0));
     setView();
@@ -188,7 +184,6 @@ namespace ecto_gl
   {
     // Readjust view volume
     glMatrixMode(GL_PROJECTION);
-    camera_.projectionMatrix();
     glLoadMatrixf(camera_.projectionMatrix().data());
     glMatrixMode(GL_MODELVIEW);
     glLoadMatrixf(camera_.viewMatrix().data());
@@ -196,6 +191,12 @@ namespace ecto_gl
   void
   GLWindow::keyboard(unsigned char key, int x, int y)
   {
+  }
+
+  void
+  GLWindow::destroy()
+  {
+//    SHOW_ME()
   }
 
 }

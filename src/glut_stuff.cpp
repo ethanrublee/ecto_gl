@@ -15,6 +15,8 @@
 #include <boost/signals2.hpp>
 #include <boost/format.hpp>
 
+#include <GL/glew.h>
+
 #include "ecto_gl.hpp"
 
 //#include <GL/glut.h>
@@ -123,6 +125,11 @@ namespace ecto_gl
     void
     start()
     {
+      if (quit_)
+      {
+        std::cout << "Quit, restarting." << std::endl;
+        stop();
+      }
       if (mlthread_ == boost::thread())
         mlthread_ = boost::thread(boost::bind(&GlutContext::mainloop, this));
     }
@@ -155,7 +162,6 @@ namespace ecto_gl
     {
       if (windows_.get<2>().count(gw))
       {
-        std::cerr << "Window already added with given address." << gw << std::endl;
         return;
       }
       int win = glutCreateWindow(&*(gw->windowname_.begin()));
@@ -175,6 +181,7 @@ namespace ecto_gl
     destroyWindow(GLWindowH win)
     {
       windows_.erase(win);
+      win.window->destroy();
       glutDestroyWindow(win.id);
     }
 
@@ -231,8 +238,15 @@ namespace ecto_gl
     {
       int window = glutGetWindow();
       GLWindow::ptr w = getWindow(window);
+      if (window != w->id_)
+      {
+        std::stringstream s;
+        s << "current window is not our window!" << window << "!=" << w->id_ << std::endl;
+        throw std::logic_error(s.str()); // not sure if this will ever happen.
+      }
       if (w)
         w->display();
+      glutSwapBuffers();
     }
 
     static void
@@ -281,6 +295,9 @@ namespace ecto_gl
       glutSetWindow(val);
       if (val != glutGetWindow())
       {
+        GLWindow::ptr win = getWindow(val);
+        if (win)
+          win->destroy();
         instance().windows_.erase(GLWindowH(val));
         return;
       }
@@ -343,7 +360,9 @@ namespace ecto_gl
   {
     for (GLint error = glGetError(); error; error = glGetError())
     {
+
       std::cerr << boost::str(boost::format("after %s() glError (0x%x)\n") % op % error) << std::endl;
+      std::cerr << gluErrorString(error) << std::endl;
     }
   }
 

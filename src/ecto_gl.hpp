@@ -54,6 +54,9 @@ namespace ecto_gl
     virtual void
     keyboard(unsigned char key, int x, int y);
 
+    virtual void destroy();
+
+
     typedef boost::shared_ptr<GLWindow> ptr;
     typedef boost::shared_ptr<const GLWindow> const_ptr;
   };
@@ -67,10 +70,13 @@ namespace ecto_gl
   void
   stop();
 
-  GLuint
-  loadShader(GLenum shaderType, const char* pSource);
-  GLuint
-  createProgram(const char* pVertexSource, const char* pFragmentSource);
+  struct GlProgram
+  {
+    GlProgram(const char* pVertexSource, const char* pFragmentSource);
+    ~GlProgram();
+    GLuint vertexShader, fragmentShader;
+    GLuint program;
+  };
 
   void
   checkGlError(const char* op);
