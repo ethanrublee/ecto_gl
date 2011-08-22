@@ -222,11 +222,9 @@ namespace ecto_gl
     virtual void
     display()
     {
-
-      CHECK_GLUT_ERROR
       glEnable(GL_DEPTH_TEST);
       CHECK_GLUT_ERROR
-      glDepthRangef(0.1, 100);
+      glDepthRange(0.1, 100);
       CHECK_GLUT_ERROR
 
       glClearColor(0.0f, 0.0f, 0.0f, 1.f);

@@ -2,10 +2,22 @@ find_package(GLUT)
 find_package(OpenGL)
 find_package(Eigen)
 
-if(NOT GLUT_FOUND OR NOT OPENGL_FOUND OR NOT EIGEN_FOUND)
-    message(STATUS "^^^^^ GLUT_FOUND ${GLUTS_FOUND}")
+option(GL_CMAKE_VERBOSE TRUE)
+
+if(${GL_CMAKE_VERBOSE})
+    message(STATUS "****** GLUT includes: ${GLUT_INCLUDE_DIR}")
+    message(STATUS "****** OpenGL includes: ${OPENGL_INCLUDE_DIR}")
+    message(STATUS "****** Eigen includes: ${EIGEN_INCLUDE_DIRS}")
+    message(STATUS "****** Boost includes: ${Boost_INCLUDE_DIR}")
+    message(STATUS "^^^^^ GLUT_FOUND ${GLUT_FOUND}")
     message(STATUS "^^^^^ OPENGL_FOUND ${OPENGL_FOUND}")
-    message(STATUS "^^^^^ EIGEN_FOUND ${EIGEN_FOUND}")
+    message(STATUS "^^^^^ Eigen_FOUND ${Eigen_FOUND}")
+    
+    message(STATUS "****** GLUT_LIBRARY: ${GLUT_LIBRARY}")
+    message(STATUS "****** OPENGL_LIBRARY: ${OPENGL_LIBRARY}")
+endif()
+
+if(NOT GLUT_FOUND OR NOT OPENGL_FOUND OR NOT Eigen_FOUND)
     message(STATUS "^^^^^ Disabling ecto_gl as can't find dependencies")
     return()
 endif()
@@ -15,18 +27,10 @@ find_package(Boost COMPONENTS
   REQUIRED
   )
 
-option(GL_CMAKE_VERBOSE Off)
-if(GL_CMAKE_VERBOSE)
-    message(STATUS "****** GLUT includes: ${GLUT_INCLUDE_DIR}")
-    message(STATUS "****** OpenGL includes: ${OPENGL_INCLUDE_DIR}")
-    message(STATUS "****** Eigen includes: ${EIGEN_INCLUDE_DIR}")
-    message(STATUS "****** Boost includes: ${Boost_INCLUDE_DIR}")
-endif()
-
 include_directories(
     ${GLUT_INCLUDE_DIR}
     ${OPENGL_INCLUDE_DIR}
-    ${EIGEN_INCLUDE_DIR}
+    ${EIGEN_INCLUDE_DIRS}
     ${Boost_INCLUDE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/glew
     )
