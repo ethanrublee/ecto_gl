@@ -154,8 +154,6 @@ namespace ecto_gl
     void
     localTranslate(const Eigen::Vector3f& t);
 
-    /** Setup OpenGL matrices and viewport */
-    //void activateGL(void);
     Eigen::Vector3f
     unProject(const Eigen::Vector2f& uv, float depth, const Eigen::Matrix4f& invModelview) const;
     Eigen::Vector3f
@@ -174,9 +172,6 @@ namespace ecto_gl
 
     Frame mFrame;
 
-    mutable Eigen::Affine3f mViewMatrix;
-    mutable Eigen::Matrix4f mProjectionMatrix;
-
     mutable bool mViewIsUptodate;
     mutable bool mProjIsUptodate;
 
@@ -186,5 +181,8 @@ namespace ecto_gl
     float mFovY;
     float mNearDist;
     float mFarDist;
+
+    mutable Eigen::Affine3f mViewMatrix;
+    mutable Eigen::Matrix4f mProjectionMatrix;
   };
 }

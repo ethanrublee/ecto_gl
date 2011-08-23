@@ -50,6 +50,9 @@ namespace ecto_gl
   Camera&
   Camera::operator=(const Camera& other)
   {
+    if(this == &other)
+      return *this;
+
     mViewIsUptodate = false;
     mProjIsUptodate = false;
 
@@ -58,6 +61,8 @@ namespace ecto_gl
     mVpWidth = other.mVpWidth;
     mVpHeight = other.mVpHeight;
 
+    mFrame = other.mFrame;
+
     mTarget = other.mTarget;
     mFovY = other.mFovY;
     mNearDist = other.mNearDist;
@@ -65,13 +70,24 @@ namespace ecto_gl
 
     mViewMatrix = other.mViewMatrix;
     mProjectionMatrix = other.mProjectionMatrix;
-
     return *this;
   }
 
-  Camera::Camera(const Camera& other)
+  Camera::Camera(const Camera& rhs)
+  :
+          mVpX(rhs.mVpX),
+          mVpY(rhs.mVpY),
+          mVpWidth(rhs.mVpWidth),
+          mVpHeight(rhs.mVpHeight),
+          mFrame(rhs.mFrame),
+          mViewIsUptodate(rhs.mViewIsUptodate),
+          mProjIsUptodate(rhs.mProjIsUptodate),
+          mFovY(rhs.mFovY),
+          mNearDist(rhs.mNearDist),
+          mFarDist(rhs.mFarDist),
+          mViewMatrix(rhs.mViewMatrix),
+          mProjectionMatrix(rhs.mProjectionMatrix)
   {
-    *this = other;
   }
 
   Camera::~Camera()

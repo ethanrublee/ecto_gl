@@ -108,6 +108,13 @@ namespace ecto_gl
       boost::mutex::scoped_lock lock(adds_mtx_);
       windowadds_.connect(0, boost::bind(&GlutContext::destroyWindow, this, GLWindowH(gw)));
     }
+
+    void
+    post_remove_window(const GLWindow& gw)
+    {
+      boost::mutex::scoped_lock lock(adds_mtx_);
+      windowadds_.connect(0, boost::bind(&GlutContext::destroyWindow, this, GLWindowH(gw.id_)));
+    }
     void
     wait()
     {
@@ -117,9 +124,8 @@ namespace ecto_gl
     void
     stop()
     {
-      destroy_all();
       mlthread_.interrupt();
-      mlthread_.join();
+      wait();
     }
 
     void
@@ -180,9 +186,14 @@ namespace ecto_gl
     void
     destroyWindow(GLWindowH win)
     {
+      int previous_window = glutGetWindow();
+      GLWindow::ptr w = getWindow(win.id);
+      glutSetWindow(win.id);
+      if (w)
+        w->destroy();
       windows_.erase(win);
-      win.window->destroy();
       glutDestroyWindow(win.id);
+      glutSetWindow(previous_window);
     }
 
     void
@@ -198,14 +209,9 @@ namespace ecto_gl
         glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION);
         started_ = true;
       }
-      bool windows_added_ = false;
       quit_ = false;
       while (!boost::this_thread::interruption_requested() && !quit_)
       {
-        if (!windows_added_)
-          windows_added_ = !windows_.get<0>().empty();
-        if (windows_added_)
-          quit_ = windows_.get<0>().empty();
         //http://freeglut.sourceforge.net/docs/api.php
         glutMainLoopEvent();
         {
@@ -238,7 +244,8 @@ namespace ecto_gl
     {
       int window = glutGetWindow();
       GLWindow::ptr w = getWindow(window);
-      if (window != w->id_)
+
+      if (w && window != w->id_)
       {
         std::stringstream s;
         s << "current window is not our window!" << window << "!=" << w->id_ << std::endl;
@@ -275,17 +282,8 @@ namespace ecto_gl
       WindowSet::iterator gh = instance().windows_.find(temp);
       if (gh == instance().windows_.end())
         return;
-      switch (key)
-      {
-        case 'q':
-        {
-          instance().destroyWindow(*gh);
-        }
-          break;
-        default:
-          gh->window->keyboard(key, x, y);
-          break;
-      }
+      if (gh->window)
+        gh->window->keyboard(key, x, y);
       return;
     }
 
@@ -295,15 +293,13 @@ namespace ecto_gl
       glutSetWindow(val);
       if (val != glutGetWindow())
       {
-        GLWindow::ptr win = getWindow(val);
-        if (win)
-          win->destroy();
         instance().windows_.erase(GLWindowH(val));
         return;
       }
       GLWindow::ptr w = getWindow(val);
       if (w)
         w->timerfunc(val);
+      glutPostRedisplay();
       glutTimerFunc(instance().frame_time_, &GlutContext::timer, val);
     }
 
@@ -345,6 +341,12 @@ namespace ecto_gl
   }
 
   void
+  destroy_window(const GLWindow& window)
+  {
+    GlutContext::instance().post_remove_window(window);
+  }
+
+  void
   wait()
   {
     GlutContext::instance().wait();
@@ -354,16 +356,19 @@ namespace ecto_gl
   stop()
   {
     GlutContext::instance().stop();
+
   }
-  void
-  checkGlError(const char* op)
+
+  int
+  checkGlError(std::ostream& out)
   {
+    GLint error_any = 0;
     for (GLint error = glGetError(); error; error = glGetError())
     {
-
-      std::cerr << boost::str(boost::format("after %s() glError (0x%x)\n") % op % error) << std::endl;
-      std::cerr << gluErrorString(error) << std::endl;
+      error_any = error;
+      out << gluErrorString(error) << std::endl;
     }
+    return error_any;
   }
 
 }

@@ -54,8 +54,8 @@ namespace ecto_gl
     virtual void
     keyboard(unsigned char key, int x, int y);
 
-    virtual void destroy();
-
+    virtual void
+    destroy();
 
     typedef boost::shared_ptr<GLWindow> ptr;
     typedef boost::shared_ptr<const GLWindow> const_ptr;
@@ -64,7 +64,11 @@ namespace ecto_gl
   void
   show_window(GLWindow::ptr window);
   void
+  destroy_window(const GLWindow& window);
+
+  void
   destroy_window(GLWindow::ptr window);
+
   void
   wait();
   void
@@ -78,8 +82,12 @@ namespace ecto_gl
     GLuint program;
   };
 
-  void
-  checkGlError(const char* op);
+  int
+  checkGlError(std::ostream& out);
 
-  #define SHADER_STR(A) #A
 }
+
+#define SHADER_STR(A) #A
+
+#define CHECK_GLUT_ERROR { if(checkGlError(std::cerr)) std::cerr << "where: " <<__FILE__<<":"<<__LINE__ << std::endl; }
+
