@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 2.8)
 project(ecto_gl)
 
 find_package(ecto REQUIRED)
-
 find_package(ecto_ros REQUIRED)
 
 message(STATUS ${ecto_ros_INCLUDE_DIRS})
