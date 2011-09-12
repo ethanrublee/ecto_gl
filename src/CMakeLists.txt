@@ -1,6 +1,7 @@
 find_package(GLUT)
 find_package(OpenGL)
 find_package(Eigen)
+find_package(OpenCV REQUIRED)
 
 option(GL_CMAKE_VERBOSE TRUE)
 
@@ -52,3 +53,5 @@ link_ecto(ecto_gl
     ${OPENGL_LIBRARY}
     ${Boost_LIBRARIES}
 )
+
+add_subdirectory(vtk)
